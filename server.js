@@ -20,10 +20,15 @@ app.post("/render", (req, res) => {
     -pix_fmt yuv420p output.mp4
   `;
 
-  exec(cmd, (err) => {
-    if (err) return res.status(500).send("Render error");
-    res.sendFile(__dirname + "/output.mp4");
-  });
+  exec(cmd, (err, stdout, stderr) => {
+  if (err) {
+    console.error("FFMPEG ERROR:", err);
+    console.error(stderr);
+    return res.status(500).send("FFmpeg failed");
+  }
+  res.sendFile(__dirname + "/output.mp4");
+});
+
 });
 
 const port = process.env.PORT || 3000;
