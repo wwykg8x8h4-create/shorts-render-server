@@ -1,34 +1,38 @@
 const express = require("express");
 const { exec } = require("child_process");
+const path = require("path");
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-// Health check (damit Render.com sieht: läuft)
+// Health check
 app.get("/", (req, res) => res.send("ok"));
 
-// Make.com ruft das auf und bekommt ein MP4 zurück
+// Render endpoint
 app.post("/render", (req, res) => {
   const textRaw = (req.body?.text ?? "Hallo").toString();
 
-  // Sicherheits-Filter: keine Sonderzeichen, damit ffmpeg nicht spinnt
-  const text = textRaw.replace(/[^a-zA-Z0-9äöüÄÖÜß .,!?\-]/g, "").slice(0, 60);
+  // Filter: keep it safe for ffmpeg drawtext
+  const text = textRaw
+    .replace(/[^a-zA-Z0-9äöüÄÖÜß .,!?\-]/g, "")
+    .slice(0, 60);
 
-  const cmd = `
-    ffmpeg -y -f lavfi -i color=c=blue:s=1080x1920:d=5 \
-    -vf "drawtext=text='${text}':fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-text_h)/2" \
-    -pix_fmt yuv420p output.mp4
-  `;
+  // Build a stable single-line command
+  const cmd =
+    `ffmpeg -y -f lavfi -i color=c=blue:s=1080x1920:d=5 ` +
+    `-vf "drawtext=text='${text}':fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-text_h)/2" ` +
+    `-pix_fmt yuv420p output.mp4`;
 
   exec(cmd, (err, stdout, stderr) => {
-  if (err) {
-    console.error("FFMPEG ERROR:", err);
-    console.error(stderr);
-    return res.status(500).send("FFmpeg failed");
-  }
-  res.sendFile(__dirname + "/output.mp4");
-});
+    if (err) {
+      console.error("FFMPEG ERROR:", err);
+      console.error("STDERR:", stderr);
+      return res.status(500).send("FFmpeg failed");
+    }
 
+    // Send the rendered file
+    return res.sendFile(path.join(__dirname, "output.mp4"));
+  });
 });
 
 const port = process.env.PORT || 3000;
@@ -36,4 +40,3 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("Render server ready on " + port);
 });
-
