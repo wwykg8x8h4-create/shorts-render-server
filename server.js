@@ -26,4 +26,9 @@ app.post("/render", (req, res) => {
   });
 });
 
-app.listen(3000, () => console.log("Render server ready on 3000"));
+const port = process.env.PORT || 3000;
+
+app.listen(port, () => {
+  console.log("Render server ready on " + port);
+});
+
