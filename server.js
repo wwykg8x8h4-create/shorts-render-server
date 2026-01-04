@@ -23,32 +23,26 @@ app.post("/render", (req, res) => {
     .replace(/[^a-zA-Z0-9äöüÄÖÜß .,!?\-]/g, "")
     .slice(0, 60);
 
-  const duration = Number(req.body?.duration ?? 5);
-  const d = Number.isFinite(duration) ? Math.min(Math.max(duration, 2), 10) : 5;
+  // SOFORT antworten → kein 502 mehr
+  res.status(202).json({ ok: true, msg: "render started", text });
 
-  // Unique output per request (wichtig!)
-  const outPath = path.join("/tmp", `output-${Date.now()}.mp4`);
+  const outPath = "/tmp/output.mp4";
 
-  // drawtext: Kommas/Quotes können nerven -> escapen minimal
-  const safeText = text.replace(/:/g, "\\:").replace(/'/g, "\\'");
+  const cmd =
+    `ffmpeg -y -f lavfi -i color=c=blue:s=1080x1920:d=5 ` +
+    `-vf "drawtext=text='${text}':fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-text_h)/2" ` +
+    `-pix_fmt yuv420p ${outPath}`;
 
-  const args = [
-    "-y",
-    "-f", "lavfi",
-    "-i", `color=c=blue:s=1080x1920:d=${d}`,
-    "-vf", `drawtext=text='${safeText}':fontcolor=white:fontsize=80:x=(w-text_w)/2:y=(h-text_h)/2`,
-    "-pix_fmt", "yuv420p",
-    outPath
-  ];
-
-  const ff = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
-
-  let stderr = "";
-  ff.stderr.on("data", (d) => {
-    stderr += d.toString();
-    // nicht unendlich groß werden lassen
-    if (stderr.length > 20000) stderr = stderr.slice(-20000);
+  exec(cmd, (err, stdout, stderr) => {
+    if (err) {
+      console.error("FFMPEG ERROR:", err);
+      console.error(stderr);
+      return;
+    }
+    console.log("render done");
   });
+});
+
 
   ff.on("error", (e) => {
     console.error("FFMPEG SPAWN ERROR:", e);
